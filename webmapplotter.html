@@ -133,8 +133,8 @@
         </div>
         
         <div class="input-group">
-            <label for="csvData">コンマ区切りデータ</label>
-            <textarea id="csvData" placeholder="緯度,経度,テキスト&#10;35.6812,139.7671,東京駅&#10;35.6586,139.7454,東京タワー"></textarea>
+            <label for="csvData">コンマ/タブ区切りデータ</label>
+            <textarea id="csvData" placeholder="緯度,経度,テキスト&#10;35.6812,139.7671,東京駅&#10;35.6586,139.7454,東京タワー&#10;&#10;※Excelからのタブ区切りデータにも対応"></textarea>
         </div>
         
         <button onclick="addDataLayer()">データをプロット</button>
@@ -224,7 +224,7 @@
             }
             
             if (!csvData) {
-                alert('コンマ区切りデータを入力してください。');
+                alert('コンマ/タブ区切りデータを入力してください。');
                 return;
             }
             
@@ -240,11 +240,20 @@
                 const trimmedLine = line.trim();
                 if (!trimmedLine) return;
                 
-                const parts = trimmedLine.split(',');
+                // カンマまたはタブで分割（どちらの区切り文字でも対応）
+                let parts;
+                if (trimmedLine.includes('\t')) {
+                    // タブ区切り
+                    parts = trimmedLine.split('\t');
+                } else {
+                    // カンマ区切り
+                    parts = trimmedLine.split(',');
+                }
+                
                 if (parts.length >= 3) {
-                    const lat = parseFloat(parts[0]);
-                    const lng = parseFloat(parts[1]);
-                    const text = parts.slice(2).join(',').trim();
+                    const lat = parseFloat(parts[0].trim());
+                    const lng = parseFloat(parts[1].trim());
+                    const text = parts.slice(2).join(parts.length > 3 && trimmedLine.includes('\t') ? '\t' : ',').trim();
                     
                     if (!isNaN(lat) && !isNaN(lng)) {
                         // 色の明暗に応じて縁取りのクラスを決定
@@ -274,7 +283,7 @@
             });
             
             if (validPoints === 0) {
-                alert('有効なデータが見つかりませんでした。\n形式: 緯度,経度,テキスト');
+                alert('有効なデータが見つかりませんでした。\n形式: 緯度,経度,テキスト\nまたは: 緯度[タブ]経度[タブ]テキスト');
                 return;
             }
             
