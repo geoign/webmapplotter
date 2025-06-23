@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaflet地図アプリケーション</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    
+            <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            left: 60px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            max-width: 300px;
+        }
+        
+        .input-group {
+            margin-bottom: 10px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .layer-info {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* テキストマーカーのスタイル */
+        .text-marker {
+            font-weight: bold;
+            font-size: 16px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        
+        /* 白い縁取り（暗い色のテキスト用） */
+        .text-marker-light-outline {
+            text-shadow: 
+                -2px -2px 0 #fff,
+                2px -2px 0 #fff,
+                -2px 2px 0 #fff,
+                2px 2px 0 #fff,
+                -1px -1px 0 #fff,
+                1px -1px 0 #fff,
+                -1px 1px 0 #fff,
+                1px 1px 0 #fff,
+                0 -2px 0 #fff,
+                0 2px 0 #fff,
+                -2px 0 0 #fff,
+                2px 0 0 #fff;
+        }
+        
+        /* 黒い縁取り（明るい色のテキスト用） */
+        .text-marker-dark-outline {
+            text-shadow: 
+                -2px -2px 0 #000,
+                2px -2px 0 #000,
+                -2px 2px 0 #000,
+                2px 2px 0 #000,
+                -1px -1px 0 #000,
+                1px -1px 0 #000,
+                -1px 1px 0 #000,
+                1px 1px 0 #000,
+                0 -2px 0 #000,
+                0 2px 0 #000,
+                -2px 0 0 #000,
+                2px 0 0 #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="control-panel">
+        <div class="input-group">
+            <label for="layerName">レイヤー名</label>
+            <input type="text" id="layerName" placeholder="例: 店舗情報">
+        </div>
+        
+        <div class="input-group">
+            <label for="csvData">コンマ区切りデータ</label>
+            <textarea id="csvData" placeholder="緯度,経度,テキスト&#10;35.6812,139.7671,東京駅&#10;35.6586,139.7454,東京タワー"></textarea>
+        </div>
+        
+        <button onclick="addDataLayer()">データをプロット</button>
+        
+        <div class="layer-info" id="layerInfo">
+            レイヤー数: <span id="layerCount">0</span>
+        </div>
+    </div>
+    
+    <!-- Leaflet JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    
+    <script>
+        // 地図の初期化
+        const map = L.map('map').setView([35.6812, 139.7671], 6);
+        
+        // ベースマップの定義
+        const baseMaps = {
+            'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }),
+            'Google Map': L.tileLayer('https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}', {
+                attribution: '© Google'
+            }),
+            '地理院地図': L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+                attribution: '© 国土地理院'
+            })
+        };
+        
+        // デフォルトでOpenStreetMapを表示
+        baseMaps['OpenStreetMap'].addTo(map);
+        
+        // レイヤーコントロールの追加
+        const layerControl = L.control.layers(baseMaps, {}, {position: 'topright'}).addTo(map);
+        
+        // レイヤーを管理する配列
+        const dataLayers = [];
+        let usedColors = [];
+        
+        // ランダムな色を生成する関数（重複しないように）
+        function getRandomColor() {
+            const colors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
+                '#FF9FF3', '#54A0FF', '#48DBFB', '#0ABDE3', '#EE5A24',
+                '#F368E0', '#FF6348', '#CD84F1', '#7BED9F', '#70A1FF',
+                '#5F27CD', '#00D2D3', '#FF4757', '#2ED573', '#FFD93D'
+            ];
+            
+            // 使用可能な色をフィルタリング
+            const availableColors = colors.filter(color => !usedColors.includes(color));
+            
+            // 全ての色が使用済みの場合はリセット
+            if (availableColors.length === 0) {
+                usedColors = [];
+                availableColors.push(...colors);
+            }
+            
+            // ランダムに色を選択
+            const selectedColor = availableColors[Math.floor(Math.random() * availableColors.length)];
+            usedColors.push(selectedColor);
+            
+            return selectedColor;
+        }
+        
+        // 色の明度を判定する関数
+        function isLightColor(color) {
+            // HEXカラーをRGBに変換
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            
+            // 輝度を計算（YIQ式）
+            const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+            
+            return brightness > 128;
+        }
+        
+        // データをプロットする関数
+        function addDataLayer() {
+            const layerName = document.getElementById('layerName').value.trim();
+            const csvData = document.getElementById('csvData').value.trim();
+            
+            if (!layerName) {
+                alert('レイヤー名を入力してください。');
+                return;
+            }
+            
+            if (!csvData) {
+                alert('コンマ区切りデータを入力してください。');
+                return;
+            }
+            
+            // 新しいレイヤーグループを作成
+            const layerGroup = L.layerGroup();
+            const color = getRandomColor();
+            
+            // データを行ごとに分割
+            const lines = csvData.split('\n');
+            let validPoints = 0;
+            
+            lines.forEach((line, index) => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+                
+                const parts = trimmedLine.split(',');
+                if (parts.length >= 3) {
+                    const lat = parseFloat(parts[0]);
+                    const lng = parseFloat(parts[1]);
+                    const text = parts.slice(2).join(',').trim();
+                    
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        // 色の明暗に応じて縁取りのクラスを決定
+                        const outlineClass = isLightColor(color) ? 'text-marker-dark-outline' : 'text-marker-light-outline';
+                        
+                        // テキストアイコンを作成
+                        const textIcon = L.divIcon({
+                            html: `<div class="text-marker ${outlineClass}" style="color: ${color};">${text}</div>`,
+                            iconSize: null,
+                            className: '',
+                            iconAnchor: [0, 0]
+                        });
+                        
+                        // マーカーを作成
+                        const marker = L.marker([lat, lng], {
+                            icon: textIcon
+                        });
+                        
+                        // ポップアップを追加
+                        marker.bindPopup(`<strong>${text}</strong><br>緯度: ${lat}<br>経度: ${lng}`);
+                        
+                        // レイヤーグループに追加
+                        marker.addTo(layerGroup);
+                        validPoints++;
+                    }
+                }
+            });
+            
+            if (validPoints === 0) {
+                alert('有効なデータが見つかりませんでした。\n形式: 緯度,経度,テキスト');
+                return;
+            }
+            
+            // レイヤーを地図に追加
+            layerGroup.addTo(map);
+            
+            // レイヤーコントロールに追加（色付きの●を表示）
+            const layerLabel = document.createElement('span');
+            layerLabel.innerHTML = `${layerName} <span style="color: ${color}; font-weight: bold;">●</span>`;
+            layerControl.addOverlay(layerGroup, layerLabel.innerHTML);
+            
+            // レイヤー情報を保存
+            dataLayers.push({
+                name: layerName,
+                layer: layerGroup,
+                color: color,
+                count: validPoints
+            });
+            
+            // レイヤー数を更新
+            document.getElementById('layerCount').textContent = dataLayers.length;
+            
+            // 入力フィールドをクリア
+            document.getElementById('layerName').value = '';
+            document.getElementById('csvData').value = '';
+            
+            // プロットしたデータが全て見える範囲に自動的に移動・ズーム
+            if (validPoints > 0) {
+                // 全てのマーカーの座標を配列に収集
+                const latlngs = [];
+                layerGroup.eachLayer(function(layer) {
+                    if (layer.getLatLng) {
+                        latlngs.push(layer.getLatLng());
+                    }
+                });
+                
+                if (latlngs.length > 0) {
+                    // 座標配列からboundsを作成
+                    const bounds = L.latLngBounds(latlngs);
+                    
+                    // 地図を移動・ズーム
+                    map.fitBounds(bounds, {
+                        padding: [100, 100],
+                        maxZoom: 15
+                    });
+                }
+            }
+            
+            // 成功メッセージ
+            console.log(`レイヤー「${layerName}」を追加しました。${validPoints}個のポイントをプロットしました。`);
+            
+            // 成功の視覚的フィードバック
+            const button = document.querySelector('button');
+            const originalText = button.textContent;
+            button.textContent = '✓ プロット完了！';
+            button.style.backgroundColor = '#45a049';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.backgroundColor = '#4CAF50';
+            }, 1500);
+        }
+        
+        // Enterキーでの送信をサポート
+        document.getElementById('csvData').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                addDataLayer();
+            }
+        });
+    </script>
+</body>
+</html>
