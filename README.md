@@ -3,7 +3,7 @@
 緯度経度とテキストデータを地図上に複数レイヤーとしてプロットできます。<br>
 <br>
 - 以下URLで試せます👇<br>
-[https://geoign.github.io/webmapplotter/webmapplotter.html]
+https://geoign.github.io/webmapplotter/webmapplotter.html
 
 ## 🌟 主な機能
 
