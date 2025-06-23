@@ -242,9 +242,11 @@
                 
                 // カンマまたはタブで分割（どちらの区切り文字でも対応）
                 let parts;
+                let delimiter = ',';
                 if (trimmedLine.includes('\t')) {
                     // タブ区切り
                     parts = trimmedLine.split('\t');
+                    delimiter = '\t';
                 } else {
                     // カンマ区切り
                     parts = trimmedLine.split(',');
@@ -253,7 +255,7 @@
                 if (parts.length >= 3) {
                     const lat = parseFloat(parts[0].trim());
                     const lng = parseFloat(parts[1].trim());
-                    const text = parts.slice(2).join(parts.length > 3 && trimmedLine.includes('\t') ? '\t' : ',').trim();
+                    const text = parts.slice(2).join(delimiter).trim();
                     
                     if (!isNaN(lat) && !isNaN(lng)) {
                         // 色の明暗に応じて縁取りのクラスを決定
