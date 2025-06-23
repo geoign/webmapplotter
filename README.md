@@ -1,5 +1,9 @@
 # WebMapPlotter
-シンプルで使いやすいWebベースの地図アプリケーションです。緯度経度とテキストデータを地図上に複数レイヤーとしてプロットできます。
+シンプルで使いやすいWebベースの地図アプリケーションです。<br>
+緯度経度とテキストデータを地図上に複数レイヤーとしてプロットできます。<br>
+<br>
+- 以下URLで試せます👇
+[https://geoign.github.io/webmapplotter/webmapplotter.html]
 
 ## 🌟 主な機能
 
